@@ -1,8 +1,12 @@
+module Main (main) where
+
 import qualified Data.Map as Map
 import Data.Map (Map)
 import Data.Maybe
+import Data.List
+import System.IO
 
-data Label = A | B | C deriving (Eq, Ord, Show, Enum)
+data Label = A | B | C deriving (Eq, Ord, Show, Read, Enum)
 type Coord = (Label, Label)
 type Board = Map Coord (Maybe Player)
 data Player = X | O deriving (Eq, Ord, Show)
@@ -11,6 +15,26 @@ data GameResult = Win Player | Tie deriving (Eq, Ord, Show)
 
 validCoords :: [Coord]
 validCoords = [(x,y) | x <- [A .. C], y <- [A .. C]]
+
+-- This should display a nice ASCII representation of the game state like:
+--  X| |
+--  -+-+-
+--   |O|
+--  -+-+-
+--   | |
+-- It is X's turn.
+instance Show GameState where
+  show (GameState player board) = intercalate " -+-+-\n"
+                                  (fmap showRow
+                                  [[(x,y) | x <- [A .. C]] | y <- [A .. C]])
+                                  ++ "It is " ++ show player ++ "'s turn.\n"
+    where
+      showSpace :: Coord -> String
+      showSpace coord = case board Map.! coord of
+                        Nothing -> " "
+                        Just x -> show x
+      showRow :: [Coord] -> String
+      showRow row = " " ++ intercalate "|" (fmap showSpace row) ++ "\n"
 
 emptyBoard :: Board
 emptyBoard = Map.fromList (zip validCoords (repeat Nothing))
@@ -34,13 +58,34 @@ isWinningLine [Just x, Just y, Just z] | x == y && y == z = Just x
 isWinningLine _ = Nothing
 
 getGameResult :: GameState -> Maybe GameResult
-getGameResult (GameState _ board) = if not $ null winningLines
-                                    then Just $ Win $ head winningLines
-                                    else if notElem Nothing $ Map.elems board
-                                    then Just Tie else Nothing
-  where winningLines = catMaybes (fmap isWinningLine
-                             (fmap (fmap (board Map.!))
-                                   straightLines))
+getGameResult (GameState _ board) = case winningLines of
+                                    (x:_) -> Just $ Win $ x
+                                    [] -> if notElem Nothing $ Map.elems board
+                                          then Just Tie else Nothing
+  where
+    winningLines :: [Player]
+    winningLines = catMaybes $ fmap isWinningLine
+                             $ fmap (fmap (board Map.!))
+                             straightLines
+
+otherPlayer :: Player -> Player
+otherPlayer X = O
+otherPlayer O = X
+
+playFromState :: GameState -> IO ()
+playFromState state@(GameState player board) = do
+            print state
+            let result = getGameResult state in
+              case result of
+              Nothing -> do
+                putStr " > "; hFlush stdout
+                input <- getLine
+                let coord = read ("(" ++ input ++ ")") :: Coord
+                playFromState
+                  $ GameState (otherPlayer player)
+                  $ Map.insert coord (Just player) board
+              Just Tie -> putStrLn "It's a tie."
+              Just (Win winner) -> putStrLn $ show winner ++ " wins."
 
 main :: IO ()
-main = undefined
+main = playFromState startState
