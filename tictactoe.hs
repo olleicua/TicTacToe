@@ -72,15 +72,29 @@ otherPlayer :: Player -> Player
 otherPlayer X = O
 otherPlayer O = X
 
+readMaybe :: Read a => String -> Maybe a
+readMaybe str = case reads str of
+    (a, "") : _ -> Just a
+    _ -> Nothing
+
+getMove :: GameState -> IO Coord
+getMove state@(GameState _ board) = do
+          putStr " > "; hFlush stdout
+          input <- getLine
+          let coord = readMaybe ("(" ++ input ++ ")") :: Maybe Coord
+          case coord of
+            Nothing -> getMove state
+            Just c -> if Nothing == board Map.! c then return c else getMove state
+
 playFromState :: GameState -> IO ()
 playFromState state@(GameState player board) = do
             print state
             let result = getGameResult state in
               case result of
               Nothing -> do
-                putStr " > "; hFlush stdout
-                input <- getLine
-                let coord = read ("(" ++ input ++ ")") :: Coord
+                --input <- getLine
+                --let coord = readMaybe ("(" ++ input ++ ")") :: Maybe Coord
+                coord <- getMove state
                 playFromState
                   $ GameState (otherPlayer player)
                   $ Map.insert coord (Just player) board
