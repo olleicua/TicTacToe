@@ -92,8 +92,6 @@ playFromState state@(GameState player board) = do
             let result = getGameResult state in
               case result of
               Nothing -> do
-                --input <- getLine
-                --let coord = readMaybe ("(" ++ input ++ ")") :: Maybe Coord
                 coord <- getMove state
                 playFromState
                   $ GameState (otherPlayer player)
